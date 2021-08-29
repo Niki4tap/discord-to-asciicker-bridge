@@ -1,70 +1,70 @@
-use std::{io::{Read, Write}, net::*};
+use tungstenite::*;
 
-const UPGRADE_REQ: &str = "GET /ws/y6/ HTTP/1.1\r\n\
-Host: asciicker.com\r\n\
-User-Agent: native-asciicker-linux\r\n\
-Accept: */*\r\n\
-Accept-Language: en-US,en;q=0.5\r\n\
-Sec-WebSocket-Version: 13\r\n\
-Sec-WebSocket-Key: btsPdKGunHdaTPnSSDlfow==\r\n\
-Pragma: no-cache\r\n\
-Cache-Control: no-cache\r\n\
-Upgrade: WebSocket\r\n\
-Connection: Upgrade\r\n\r\n";
-
-fn read_till_double_crlf(socket: &mut TcpStream, buf: &mut Vec<u8>) {
-    let mut mem: (bool, bool, bool) = (false, false, false);
-    loop {
-        let mut new_buf = [0; 1];
-        socket.read_exact(&mut new_buf).unwrap();
-        buf.push(new_buf[0]);
-        match std::str::from_utf8(&new_buf).unwrap() {
-            "\r" => {
-                match mem {
-                    (_, true, _) => mem = (false, false, true),
-                    (_, _, _) => mem = (true, false, false),
-                }
-            },
-            "\n" => {
-                match mem {
-                    (true, _, _) => mem = (false, true, false),
-                    (_, _, true) => mem = (true, true, true),
-                    (_, _, _) => mem = (false, false, false)
-                }
-            },
-            _ => mem = (false, false, false)
-        }
-        if mem == (true, true, true) {
-            break
-        }
-    }
+fn anything_to_bytes<T: Sized>(to_pack: &T) -> &'static [u8] {
+    unsafe {std::slice::from_raw_parts((to_pack as *const T) as *const u8, std::mem::size_of::<T>())}
 }
 
+fn bytes_to_anything<'a, T>(bytes: &'a [u8]) -> &'a T {
+    assert_eq!(bytes.len(), std::mem::size_of::<T>());
+    let ptr: *const u8 = bytes.as_ptr();
+    assert_eq!(ptr.align_offset(std::mem::align_of::<T>()), 0);
+
+    unsafe {ptr.cast::<T>().as_ref().unwrap()}
+}
+
+#[repr(C)]
 struct STRUCT_REQ_JOIN {
     token: u8,
-    name: [char; 31]
+    name: [u8; 31]
+}
+
+#[repr(C)]
+struct STRUCT_RSP_JOIN {
+    token: u8,
+    maxcli: u8,
+    id: u16
 }
 
 fn main() {
-    let mut socket = TcpStream::connect("asciicker.com:80").expect("Failed to create a TCP socket");
+    let mut ws = connect("ws://localhost:8080/ws/y6/").expect("Failed to open a websocket").0;
 
-    socket.write(UPGRADE_REQ.as_bytes()).expect("Failed to upgrade the socket to a websocket");
-    
-    let mut buf = vec![];
-
-    read_till_double_crlf(&mut socket, &mut buf);
-
-    println!("{}", std::str::from_utf8(buf.as_slice()).unwrap());
-
-    let mut name = ['\0'; 31];
-    name[0] = 'B';
-    name[1] = 'o';
-    name[2] = 't';
+    let mut name = ['\0' as u8; 31];
+    name[0] = 'B' as u8;
+    name[1] = 'o' as u8;
+    name[2] = 't' as u8;
 
     let join_req = STRUCT_REQ_JOIN {
         token: 'J' as u8,
         name: name
     };
+    
+    let join_req_bytes = anything_to_bytes(&join_req);
 
-    socket.shutdown(Shutdown::Both).expect("Failed to shutdown the socket");
+    println!("Can write: {}, Can read: {}", ws.can_write(), ws.can_read());
+
+    ws.write_message(Message::Binary(join_req_bytes.to_vec())).expect("Failed to send join request");
+
+    let msg = ws.read_message().expect("Failed to read a message from the websocket");
+
+    let rsp: &STRUCT_RSP_JOIN;
+
+    let tmp_data: Vec<u8>;
+
+    match msg {
+        Message::Binary(data) => {
+            tmp_data = data;
+            rsp = bytes_to_anything::<STRUCT_RSP_JOIN>(&tmp_data);
+        },
+        _ => panic!("Expected binary data")
+    }
+
+    println!("Response:\ntoken: {}\nmax clients: {}\nid: {}", rsp.token as char, rsp.maxcli, rsp.id);
+
+    loop {
+        println!("Trying to receive a message");
+
+        let msg = ws.read_message().expect("Failed to get a message in a loop");
+
+        println!("Got a message: {:?}", msg);
+    }
 }
