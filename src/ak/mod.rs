@@ -148,6 +148,6 @@ impl JoinBroadcast {
     }
 
     pub(crate) fn name(&self) -> &CStr {
-        unsafe {&CStr::from_ptr(self.inner[24..56].as_ptr() as *const i8)}
+        unsafe {&CStr::from_ptr(self.inner[24..56].as_ptr())}
     }
 }
