@@ -96,7 +96,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                                 let what: String = std::str::from_utf8(the_data.string().as_slice()).unwrap().escape_default().collect();
                                 let body = format!("{{\"content\": \"{}\", \"username\": \"{} [id:{}]\"}}", what, players[&the_data.id()].name().to_str().unwrap(), the_data.id());
                                 println!("Sending data to a webhook: {}", body);
-                                client.post(std::env::var("DISCORD_WEBHOOK"))
+                                client.post(std::env::var("DISCORD_WEBHOOK").unwrap())
                                 .body(body)
                                 .send().await.unwrap();
                             },  
