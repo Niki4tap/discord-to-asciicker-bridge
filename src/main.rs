@@ -94,7 +94,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                                 headers.insert(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_str("application/json").unwrap());                            
                                 let client = reqwest::Client::builder().default_headers(headers).build().expect("Failed to build http client");
                                 let what: String = std::str::from_utf8(the_data.string().as_slice()).unwrap().escape_default().collect();
-                                let body = format!("{{\"content\": \"{}\", \"username\": \"{} [id:{}]\"}}", what, players[&the_data.id()].name().to_str().unwrap(), the_data.id());
+                                let body = format!("{{\"content\": \"{}\", \"username\": \"{}\"}}", what, players[&the_data.id()].name().to_str().unwrap());
                                 println!("Sending data to a webhook: {}", body);
                                 client.post(std::env::var("DISCORD_WEBHOOK").unwrap())
                                 .body(body)
@@ -102,7 +102,14 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                             },  
                             106 => {
                                 let the_data = ak::JoinBroadcast::new(more_data);
-                                println!("New user called: {} with id of {}", the_data.name().to_str().unwrap(), the_data.id());
+                                let mut headers = reqwest::header::HeaderMap::default();
+                                headers.insert(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_str("application/json").unwrap());                            
+                                let client = reqwest::Client::builder().default_headers(headers).build().expect("Failed to build http client");
+                                let body = format!("{{\"content\": \"New user called: {} with id of: {}\", \"username\": \"INFO\"}}", the_data.name().to_str().unwrap(), the_data.id());
+                                println!("Sending data to a webhook: {}", body);
+                                client.post(std::env::var("DISCORD_WEBHOOK").unwrap())
+                                .body(body)
+                                .send().await.unwrap();
                                 players.insert(the_data.id(), the_data);
                             },
                             _ => continue
