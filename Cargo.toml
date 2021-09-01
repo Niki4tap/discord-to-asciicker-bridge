@@ -6,4 +6,9 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tungstenite = "*"
+reqwest = { version = "0.11", features = ["json", "blocking"] }
+futures-util = {version = "*", features = ["sink"]}
+futures-timer = {version = "*"}
+futures = "*"
+tokio = {version = "*", features = ["full"]}
+tokio-tungstenite = "*"
