@@ -12,7 +12,7 @@ unsafe fn anything_to_bytes<'a, T: Sized>(to_pack: &'a T) -> &'a [u8] {
     std::slice::from_raw_parts((to_pack as *const T) as *const u8, std::mem::size_of::<T>())
 }
 
-w#[allow(dead_code)]
+#[allow(dead_code)]
 unsafe fn bytes_to_anything<'a, T>(bytes: &'a [u8]) -> &'a T {
     assert_eq!(bytes.len(), std::mem::size_of::<T>());
     let ptr: *const u8 = bytes.as_ptr();
