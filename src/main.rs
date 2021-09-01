@@ -12,7 +12,7 @@ unsafe fn anything_to_bytes<'a, T: Sized>(to_pack: &'a T) -> &'a [u8] {
     std::slice::from_raw_parts((to_pack as *const T) as *const u8, std::mem::size_of::<T>())
 }
 
-#[allow(dead_code)]
+w#[allow(dead_code)]
 unsafe fn bytes_to_anything<'a, T>(bytes: &'a [u8]) -> &'a T {
     assert_eq!(bytes.len(), std::mem::size_of::<T>());
     let ptr: *const u8 = bytes.as_ptr();
@@ -95,7 +95,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                                 let client = reqwest::Client::builder().default_headers(headers).build().expect("Failed to build http client");
                                 let body = format!("{{\"content\": \"{}\", \"username\": \"{}\"}}", std::str::from_utf8(the_data.string.as_slice()).unwrap(), std::str::from_utf8(players[&the_data.id].as_slice()).unwrap());
                                 println!("Sending data to a webhook: {}", body);
-                                client.post("https://discordapp.com/api/webhooks/848128016121856010/9VlabN5SYLQ3BOfhzyps-e2Lad_-qTrQYsaQbW9dMU0GGlxOETH0XTCpHlqZ3BR8BBwX")
+                                client.post("DISCORD_WEBHOOK_HERE")
                                 .body(body)
                                 .send().await.unwrap();
                             },  
