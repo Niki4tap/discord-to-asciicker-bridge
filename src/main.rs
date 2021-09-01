@@ -93,14 +93,8 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                                 let mut headers = reqwest::header::HeaderMap::default();
                                 headers.insert(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_str("application/json").unwrap());                            
                                 let client = reqwest::Client::builder().default_headers(headers).build().expect("Failed to build http client");
-                                let mut what: String = std::str::from_utf8(the_data.string().as_slice()).unwrap().escape_default().collect();
-                                for c in what.char_indices() {
-                                    if c.1 == '@' {
-                                        what.remove(c.0);
-                                        what.insert_str(c.0, "(a)");
-                                    }
-                                }
-                                let body = format!("{{\"content\": \"{}\", \"username\": \"{}\"}}", what, players[&the_data.id()].name().to_str().unwrap());
+                                let what: String = std::str::from_utf8(the_data.string().as_slice()).unwrap().escape_default().collect();
+                                let body = format!("{{\"content\": \"{}\", \"username\": \"{}\", \"allowed_mentions\": {{\"parse\": []}}}}", what, players[&the_data.id()].name().to_str().unwrap());
                                 println!("Sending data to a webhook: {}", body);
                                 client.post(std::env::var("DISCORD_WEBHOOK").unwrap())
                                 .body(body)
@@ -111,7 +105,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                                 let mut headers = reqwest::header::HeaderMap::default();
                                 headers.insert(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_str("application/json").unwrap());                            
                                 let client = reqwest::Client::builder().default_headers(headers).build().expect("Failed to build http client");
-                                let body = format!("{{\"content\": \"New user called: {} with id of: {}\", \"username\": \"INFO\"}}", the_data.name().to_str().unwrap(), the_data.id());
+                                let body = format!("{{\"content\": \"New user called: {} with id of: {}\", \"username\": \"INFO\", \"allowed_mentions\": {{\"parse\": []}}}}", the_data.name().to_str().unwrap(), the_data.id());
                                 println!("Sending data to a webhook: {}", body);
                                 client.post(std::env::var("DISCORD_WEBHOOK").unwrap())
                                 .body(body)
