@@ -9,6 +9,5 @@ edition = "2018"
 reqwest = { version = "0.11", features = ["json", "blocking"] }
 futures-util = {version = "*", features = ["sink"]}
 futures-timer = {version = "*"}
-futures = "*"
 tokio = {version = "*", features = ["full"]}
 tokio-tungstenite = "*"

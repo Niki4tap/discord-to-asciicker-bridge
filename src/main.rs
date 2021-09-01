@@ -49,7 +49,7 @@ impl<'a, T> Binary<T> {
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let mut players = HashMap::<u16, Box<Vec<u8>>>::new();
+    let mut players = HashMap::<u16, ak::JoinBroadcast>::new();
 
     let mut ws = connect_async("ws://asciicker.com/ws/y6/").await?.0;
 
@@ -93,22 +93,17 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                                 let mut headers = reqwest::header::HeaderMap::default();
                                 headers.insert(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_str("application/json").unwrap());                            
                                 let client = reqwest::Client::builder().default_headers(headers).build().expect("Failed to build http client");
-                                let body = format!("{{\"content\": \"{}\", \"username\": \"{}\"}}", std::str::from_utf8(the_data.string.as_slice()).unwrap(), std::str::from_utf8(players[&the_data.id].as_slice()).unwrap());
+                                let what: String = std::str::from_utf8(the_data.string().as_slice()).unwrap().escape_default().collect();
+                                let body = format!("{{\"content\": \"{}\", \"username\": \"{} [id:{}]\"}}", what, players[&the_data.id()].name().to_str().unwrap(), the_data.id());
                                 println!("Sending data to a webhook: {}", body);
-                                client.post("DISCORD_WEBHOOK_HERE")
+                                client.post("https://discord.com/api/webhooks/882376294212468736/JPKFGnHoKy_gq-c9Lesjnzg-9mIuIUwT514VOTikNh5w-cngdIGmYKQLJDaCIytMQC5I")
                                 .body(body)
                                 .send().await.unwrap();
                             },  
                             106 => {
                                 let the_data = ak::JoinBroadcast::new(more_data);
-                                let mut new_vec = the_data.name.clone();
-                                #[allow(unused_mut)]
-                                for mut item in new_vec.iter_mut() {
-                                    if *item == 0 {
-                                        *item = 32;
-                                    }
-                                }
-                                players.insert(the_data.id, new_vec);
+                                println!("New user called: {} with id of {}", the_data.name().to_str().unwrap(), the_data.id());
+                                players.insert(the_data.id(), the_data);
                             },
                             _ => continue
                         },

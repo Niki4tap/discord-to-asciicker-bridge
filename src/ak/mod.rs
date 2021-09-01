@@ -1,11 +1,13 @@
-#[derive(Debug)]
+use std::ffi::CStr;
+
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub(crate) struct JoinRequest {
     pub(crate) token: u8,
     pub(crate) name: [u8; 31]
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub(crate) struct JoinResponse {
     pub(crate) token: u8,
@@ -13,7 +15,7 @@ pub(crate) struct JoinResponse {
     pub(crate) id: u16
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[repr(C)]
 #[allow(non_upper_case_globals)]
 pub(crate) struct TalkRequest<const length: usize> {
@@ -22,7 +24,7 @@ pub(crate) struct TalkRequest<const length: usize> {
     pub(crate) string: [u8; length]
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub(crate) struct PoseRequest {
     pub(crate) token: u8,
@@ -34,27 +36,16 @@ pub(crate) struct PoseRequest {
     pub(crate) sprite: u16
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub(crate) struct TalkBroadcast {
-    pub(crate) token: u8,
-    pub(crate) len: u8,
-    pub(crate) id: u16,
-    pub(crate) string: Vec<u8>
+    pub(crate) inner: Vec<u8>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub(crate) struct JoinBroadcast {
-    pub(crate) token: u8,
-    pub(crate) anim: u8,
-    pub(crate) frame: u8,
-    pub(crate) am: u8,
-    pub(crate) pos: [f32; 3],
-    pub(crate) dir: f32,
-    pub(crate) id: u16,
-    pub(crate) sprite: u16,
-    pub(crate) name: Box<Vec<u8>>
+    pub(crate) inner: Vec<u8>
 }
 
 impl JoinRequest {
@@ -92,26 +83,71 @@ impl PoseRequest {
 impl TalkBroadcast {
     pub(crate) fn new(brc: Vec<u8>) -> Self {
         Self {
-            token: brc[0],
-            len: brc[1],
-            id: (brc[2] as u16) + (brc[3] as u16),
-            string: brc[4..(brc[1] + 4) as usize].to_vec()
+            inner: brc
         }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn token(&self) -> u8 {
+        self.inner[0]
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn len(&self) -> u8 {
+        self.inner[1]
+    }
+
+    pub(crate) fn id(&self) -> u16 {
+        (self.inner[2] as u16) + (self.inner[3] as u16)
+    }
+
+    pub(crate) fn string(&self) -> Vec<u8> {
+        self.inner[4..(self.inner[1] + 4) as usize].to_vec()
     }
 }
 
 impl JoinBroadcast {
     pub(crate) fn new(brc: Vec<u8>) -> Self {
         Self {
-            token: brc[0],
-            anim: brc[1],
-            frame: brc[2],
-            am: brc[3],
-            pos: [0.0, 0.0, 0.0],
-            dir: 0.0,
-            id: brc[20] as u16 + brc[21] as u16,
-            sprite: brc[22] as u16 + brc[23] as u16,
-            name: Box::new(brc[24..56].to_vec())
+            inner: brc
         }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn token(&self) -> u8 {
+        self.inner[0]
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn anim(&self) -> u8 {
+        self.inner[1]
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn frame(&self) -> u8 {
+        self.inner[2]
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn am(&self) -> u8 {
+        self.inner[3]
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn pos(&self) -> [f32; 3] {
+        [0.0, 0.0, 0.0]
+    }
+
+    pub(crate) fn id(&self) -> u16 {
+        self.inner[20] as u16 + self.inner[21] as u16
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn sprite(&self) -> u16 {
+        self.inner[22] as u16 + self.inner[23] as u16
+    }
+
+    pub(crate) fn name(&self) -> &CStr {
+        unsafe {&CStr::from_ptr(self.inner[24..56].as_ptr() as *const i8)}
     }
 }
