@@ -44,14 +44,14 @@ pub(crate) struct TalkBroadcast {
 
 #[derive(Debug, Clone)]
 #[repr(C)]
-pub(crate) struct JoinBroadcast {
+pub(crate) struct ExitBroadcast {
     pub(crate) inner: Vec<u8>
 }
 
-impl JoinRequest {
-    pub(crate) fn new(name: [u8; 31]) -> Self {
-        Self{token: b'J', name: name}
-    }
+#[derive(Debug, Clone)]
+#[repr(C)]
+pub(crate) struct JoinBroadcast {
+    pub(crate) inner: Vec<u8>
 }
 
 impl JoinResponse {
@@ -80,6 +80,31 @@ impl PoseRequest {
     }
 }
 
+impl JoinRequest {
+    pub(crate) fn new(name: [u8; 31]) -> Self {
+        Self{token: b'J', name: name}
+    }
+}
+
+impl ExitBroadcast {
+    pub(crate) fn new(brc: Vec<u8>) -> Self {
+        Self {
+            inner: brc
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn token(&self) -> u8 {
+        self.inner[0]
+    }
+
+    pub(crate) fn id(&self) -> u16 {
+        self.inner[3] as u16 + self.inner[4] as u16
+    }
+
+    pub(crate) const TOKEN: u8 = 101;
+}
+
 impl TalkBroadcast {
     pub(crate) fn new(brc: Vec<u8>) -> Self {
         Self {
@@ -104,6 +129,8 @@ impl TalkBroadcast {
     pub(crate) fn string(&self) -> Vec<u8> {
         self.inner[4..(self.inner[1] + 4) as usize].to_vec()
     }
+
+    pub(crate) const TOKEN: u8 = 116;
 }
 
 impl JoinBroadcast {
@@ -150,4 +177,6 @@ impl JoinBroadcast {
     pub(crate) fn name(&self) -> &CStr {
         unsafe {&CStr::from_ptr(self.inner[24..56].as_ptr() as *const std::os::raw::c_char)}
     }
+
+    pub(crate) const TOKEN: u8 = 106;
 }
