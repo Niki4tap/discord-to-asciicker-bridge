@@ -97,6 +97,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                                 if std::env::var_os("CODEBLOCK").is_some() {
                                     what = "```".to_owned() + &what + &"```";
                                 }
+                                what = what.replace("\\'", "'");
                                 let body = format!("{{\"content\": \"{}\", \"username\": \"{}[id:{}]\", \"allowed_mentions\": {{\"parse\": []}}}}", what, players[&the_data.id()].name().to_str().unwrap(), the_data.id());
                                 println!("Sending data to a webhook: {}", body);
                                 client.post(std::env::var("DISCORD_WEBHOOK").unwrap())
