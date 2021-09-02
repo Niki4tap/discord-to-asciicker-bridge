@@ -109,7 +109,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                             },  
                             ak::JoinBroadcast::TOKEN => {
                                 let the_data = ak::JoinBroadcast::new(more_data);
-                                let mut who: String = players[&the_data.id()].name().to_str().unwrap().to_owned().escape_default().collect();
+                                let mut who: String = the_data.name().to_str().unwrap().to_owned().escape_default().collect();
                                 who = who.replace("\\'", "'");
                                 let body = format!("{{\"content\": \"New user {}[id:{}]\", \"username\": \"Information\", \"allowed_mentions\": {{\"parse\": []}}}}", who, the_data.id());
                                 println!("Sending data to a webhook: {}", body);
