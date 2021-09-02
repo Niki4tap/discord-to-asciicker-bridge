@@ -99,7 +99,7 @@ impl ExitBroadcast {
     }
 
     pub(crate) fn id(&self) -> u16 {
-        self.inner[3] as u16 + self.inner[4] as u16
+        self.inner[2] as u16 + self.inner[3] as u16
     }
 
     pub(crate) const TOKEN: u8 = 101;
