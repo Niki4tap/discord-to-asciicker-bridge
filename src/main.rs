@@ -94,7 +94,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                                 headers.insert(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_str("application/json").unwrap());                            
                                 let client = reqwest::Client::builder().default_headers(headers).build().expect("Failed to build http client");
                                 let mut what: String = std::str::from_utf8(the_data.string().as_slice()).unwrap().escape_default().collect();                                
-                                if std::env::var("CODEBLOCK").is_ok() {
+                                if std::env::var_os("CODEBLOCK").is_some() {
                                     what = "```".to_owned() + &what + &"```";
                                 }
                                 let body = format!("{{\"content\": \"{}\", \"username\": \"{}[id:{}]\", \"allowed_mentions\": {{\"parse\": []}}}}", what, players[&the_data.id()].name().to_str().unwrap(), the_data.id());
