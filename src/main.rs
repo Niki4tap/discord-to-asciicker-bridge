@@ -94,12 +94,12 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                         Message::Binary(more_data) => match more_data[0] {
                             ak::TalkBroadcast::TOKEN => {
                                 let the_data = ak::TalkBroadcast::new(more_data);
-                                let mut what: String = std::str::from_utf8(the_data.string().as_slice()).unwrap().escape_default().collect();                                
+                                let mut what: String = std::str::from_utf8(the_data.string().as_slice()).unwrap_or("Invalid UTF-8").escape_default().collect();                                
                                 if std::env::var_os("CODEBLOCK").is_some() {
                                     what = "```".to_owned() + &what + &"```";
                                 }
                                 what = what.replace("\\'", "'");
-                                let mut who: String = players[&the_data.id()].name().to_str().unwrap().to_owned().escape_default().collect();
+                                let mut who: String = players[&the_data.id()].name().to_str().unwrap_or("Invalid UTF-8").to_owned().escape_default().collect();
                                 who = who.replace("\\'", "'");
                                 let body = format!("{{\"content\": \"{}\", \"username\": \"{}[id:{}]\", \"allowed_mentions\": {{\"parse\": []}}}}", what, who, the_data.id());
                                 println!("Sending data to a webhook: {}", body);
@@ -109,7 +109,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                             },  
                             ak::JoinBroadcast::TOKEN => {
                                 let the_data = ak::JoinBroadcast::new(more_data);
-                                let mut who: String = the_data.name().to_str().unwrap().to_owned().escape_default().collect();
+                                let mut who: String = the_data.name().to_str().unwrap_or("Invalid UTF-8").to_owned().escape_default().collect();
                                 who = who.replace("\\'", "'");
                                 let body = format!("{{\"content\": \"New user {}[id:{}]\", \"username\": \"Information\", \"allowed_mentions\": {{\"parse\": []}}}}", who, the_data.id());
                                 println!("Sending data to a webhook: {}", body);
@@ -120,7 +120,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                             },
                             ak::ExitBroadcast::TOKEN => {
                                 let the_data = ak::ExitBroadcast::new(more_data);
-                                let mut who: String = players[&the_data.id()].name().to_str().unwrap().to_owned().escape_default().collect();
+                                let mut who: String = players[&the_data.id()].name().to_str().unwrap_or("Invalid UTF-8").to_owned().escape_default().collect();
                                 who = who.replace("\\'", "'");
                                 let body = format!("{{\"content\": \"{}[id:{}] has left\", \"username\": \"Information\", \"allowed_mentions\": {{\"parse\": []}}}}", who, the_data.id());
                                 println!("Sending data to a webhook: {}", body);
