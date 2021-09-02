@@ -75,7 +75,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     tokio::spawn(async move {
         loop {
-            Delay::new(std::time::Duration::from_millis(500)).await;
+            Delay::new(std::time::Duration::from_millis(10)).await;
             let pos_req = Binary::new(ak::PoseRequest::new(0, 0,0, [0.0, 0.0, 0.0], 0.0, 0));
             let pos_req_bytes = pos_req.bytes();
             ws_s.send(Message::Binary(pos_req_bytes[..pos_req_bytes.len()-2].to_vec())).await.expect("Failed to send a pose request");
