@@ -55,17 +55,19 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                 return Ok(());
             },
             Err(e) => {
-                println!("Connection has died, reason: {}", e);
-                println!("Restarting...");
+                eprintln!("Connection has died, reason: {}", e);
+                eprintln!("Restarting in 5 seconds...");
             }
         }
+        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        eprintln!("Restarting...");
     }
 }
 
 async fn bot_main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let mut players = HashMap::<u16, ak::JoinBroadcast>::new();
 
-    let mut ws = connect_async("ws://asciicker.com/ws/y6/").await?.0;
+    let mut ws = connect_async("ws://localhost:8080/ws/y6/").await?.0;
 
     let mut name = [b'\0'; 31];
     name[0] = b'B';
@@ -78,7 +80,7 @@ async fn bot_main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     let data = match ws.next().await.unwrap().unwrap() {
         Message::Binary(d) => d,
-        _ => panic!("Received data of an unsupported format")
+        _ => return Err(Box::new(ak::AsciickerConnectionError::UnknownData))
     };
 
     let join_rsp = ak::JoinResponse::new(data.as_slice());
@@ -92,7 +94,11 @@ async fn bot_main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             Delay::new(std::time::Duration::from_millis(10)).await;
             let pos_req = Binary::new(ak::PoseRequest::new(0, 0,0, [0.0, 0.0, 0.0], 0.0, 0));
             let pos_req_bytes = pos_req.bytes();
-            ws_s.send(Message::Binary(pos_req_bytes[..pos_req_bytes.len()-2].to_vec())).await.expect("Failed to send a pose request");
+            let result = ws_s.send(Message::Binary(pos_req_bytes[..pos_req_bytes.len()-2].to_vec())).await;
+            match result {
+                Err(_) => return Err::<(), Box<ak::AsciickerConnectionError>>(Box::new(ak::AsciickerConnectionError::ConnectionDropped)),
+                _ => {}
+            }
         }
     });
 
@@ -148,7 +154,7 @@ async fn bot_main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                         _ => continue
                     }
                 },
-                Err(_) => continue
+                Err(_) => return Err(Box::new(ak::AsciickerConnectionError::ConnectionDropped))
             }
         }
     }

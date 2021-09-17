@@ -1,5 +1,22 @@
 use std::ffi::CStr;
 
+#[derive(Debug, Copy, Clone)]
+pub(crate) enum AsciickerConnectionError {
+    UnknownData,
+    ConnectionDropped
+}
+
+impl std::fmt::Display for AsciickerConnectionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AsciickerConnectionError::UnknownData => writeln!(f, "AsciickerConnectionError: Unknown data"),
+            AsciickerConnectionError::ConnectionDropped => writeln!(f, "AsciickerConnectionError: Connection dropped")
+        }
+    }
+}
+
+impl std::error::Error for AsciickerConnectionError {}
+
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub(crate) struct JoinRequest {
@@ -82,7 +99,7 @@ impl PoseRequest {
 
 impl JoinRequest {
     pub(crate) fn new(name: [u8; 31]) -> Self {
-        Self{token: b'J', name: name}
+        Self{token: b'J', name}
     }
 }
 
