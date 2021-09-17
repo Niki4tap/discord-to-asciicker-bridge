@@ -49,6 +49,20 @@ impl<'a, T> Binary<T> {
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    loop {
+        match bot_main().await {
+            Ok(()) => {
+                return Ok(());
+            },
+            Err(e) => {
+                println!("Connection has died, reason: {}", e);
+                println!("Restarting...");
+            }
+        }
+    }
+}
+
+async fn bot_main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let mut players = HashMap::<u16, ak::JoinBroadcast>::new();
 
     let mut ws = connect_async("ws://asciicker.com/ws/y6/").await?.0;
