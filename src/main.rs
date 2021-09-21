@@ -1,6 +1,6 @@
 #![feature(async_closure)]
 
-use std::collections::HashMap;
+use std::{collections::HashMap};
 
 use tokio_tungstenite::{*, tungstenite::*};
 use futures_util::{SinkExt, StreamExt};
@@ -55,7 +55,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                 return Ok(());
             },
             Err(e) => {
-                eprintln!("Connection has died, reason: {}", e);
+                eprintln!("Something went wrong: {}", e);
                 eprintln!("Restarting in 5 seconds...");
             }
         }
@@ -67,7 +67,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 async fn bot_main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let mut players = HashMap::<u16, ak::JoinBroadcast>::new();
 
-    let mut ws = connect_async("ws://localhost:8080/ws/y6/").await?.0;
+    let mut ws = connect_async(std::env::var("AK_SERVER")?).await?.0;
 
     let mut name = [b'\0'; 31];
     name[0] = b'B';
@@ -78,9 +78,14 @@ async fn bot_main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     ws.send(Message::Binary(join_req.bytes().to_vec())).await?;
 
-    let data = match ws.next().await.unwrap().unwrap() {
-        Message::Binary(d) => d,
-        _ => return Err(Box::new(ak::AsciickerConnectionError::UnknownData))
+    let data = match ws.next().await {
+        Some(message) => {
+            match message? {
+                Message::Binary(d) => d,
+                _ => return Err(Box::new(ak::AsciickerConnectionError::UnknownData))
+            }
+        }
+        _ => return Err(Box::new(ak::AsciickerConnectionError::ConnectionDropped))
     };
 
     let join_rsp = ak::JoinResponse::new(data.as_slice());
@@ -104,7 +109,7 @@ async fn bot_main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     let mut headers = reqwest::header::HeaderMap::default();
     headers.insert(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_str("application/json").unwrap());                            
-    let client = reqwest::Client::builder().default_headers(headers).build().expect("Failed to build http client");
+    let client = reqwest::Client::builder().default_headers(headers).build()?;
 
     loop {
         while let Some(d) = ws_r.next().await {
@@ -123,9 +128,9 @@ async fn bot_main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                                 who = who.replace("\\'", "'");
                                 let body = format!("{{\"content\": \"{}\", \"username\": \"{}[id:{}]\", \"allowed_mentions\": {{\"parse\": []}}}}", what, who, the_data.id());
                                 println!("Sending data to a webhook: {}", body);
-                                client.post(std::env::var("DISCORD_WEBHOOK").unwrap())
+                                client.post(std::env::var("DISCORD_WEBHOOK")?)
                                 .body(body)
-                                .send().await.unwrap();
+                                .send().await?;
                             },  
                             ak::JoinBroadcast::TOKEN => {
                                 let the_data = ak::JoinBroadcast::new(more_data);
