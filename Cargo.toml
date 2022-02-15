@@ -6,8 +6,9 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-reqwest = { version = "0.11", features = ["json", "blocking"] }
-futures-util = {version = "*", features = ["sink"]}
-futures-timer = {version = "*"}
+asciicker-rs = {path = "../asciicker-rs"}
+#asciicker-rs = "0.0.2"
 tokio = {version = "*", features = ["full"]}
-tokio-tungstenite = "*"
+lazy_static = "1.4.0"
+reqwest = {version = "0.11", features = ["json"]}
+serde_json = "1.0.79"

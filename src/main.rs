@@ -1,169 +1,93 @@
-#![feature(async_closure)]
+use asciicker_rs::y6::prelude::*;
+use asciicker_rs::macro_rules_attribute::apply;
+use asciicker_rs::callback;
+use tokio::sync::Mutex;
+use std::sync::Arc;
+use lazy_static::lazy_static;
+use reqwest::{
+	Client,
+	header::{
+		HeaderMap,
+		HeaderValue,
+		CONTENT_TYPE
+	}
+};
+use serde_json::json;
 
-use std::{collections::HashMap};
-
-use tokio_tungstenite::{*, tungstenite::*};
-use futures_util::{SinkExt, StreamExt};
-use futures_timer::Delay;
-
-mod ak;
-
-unsafe fn anything_to_bytes<'a, T: Sized>(to_pack: &'a T) -> &'a [u8] {
-    std::slice::from_raw_parts((to_pack as *const T) as *const u8, std::mem::size_of::<T>())
+lazy_static! {
+	static ref DISCORD_WEBHOOK: String = std::env::var("DISCORD_WEBHOOK").unwrap();
+	static ref REQWEST_CLIENT: Client = {
+		let mut headers = HeaderMap::default();
+		headers.insert(
+			CONTENT_TYPE,
+			HeaderValue::from_str("application/json").expect("Failed to construct a header value")
+		);
+		let cb = Client::builder()
+					.default_headers(headers)
+					.build()
+					.expect("Failed to build reqwest client");
+		cb
+	};
 }
 
-#[allow(dead_code)]
-unsafe fn bytes_to_anything<'a, T>(bytes: &'a [u8]) -> &'a T {
-    assert_eq!(bytes.len(), std::mem::size_of::<T>());
-    let ptr: *const u8 = bytes.as_ptr();
-    assert_eq!(ptr.align_offset(std::mem::align_of::<T>()), 0);
-
-    ptr.cast::<T>().as_ref().unwrap()
-}
-
-#[repr(C)]
-#[derive(Debug)]
-struct Binary<T: Sized> {
-    inner: T
-}
-
-impl<'a, T> Binary<T> {
-    pub(crate) fn new(t: T) -> Self {
-        Self {inner: t}
-    }
-
-    pub(crate) fn bytes(&'a self) -> &'a [u8] {
-        unsafe {anything_to_bytes(&self.inner)}
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn get_ref(&'a self) -> &'a T {
-        &self.inner
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn get_mut(&'a mut self) -> &'a mut T {
-        &mut self.inner
-    }
-}
+const ASCIICKER_SERVER: &'static str = "ws://asciicker.com/ws/y6/";
 
 #[tokio::main]
-async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    loop {
-        match bot_main().await {
-            Ok(()) => {
-                return Ok(());
-            },
-            Err(e) => {
-                eprintln!("Something went wrong: {}", e);
-                eprintln!("Restarting in 5 seconds...");
-            }
-        }
-        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-        eprintln!("Restarting...");
-    }
+async fn main() {
+	let mut bot = Bot::new("logger", ASCIICKER_SERVER, true);
+	bot.on_join(join_callback);
+	bot.on_exit(exit_callback);
+	bot.on_talk(talk_callback);
+	let (threads, _data) = match bot.run().await {
+		Err(e) => panic!("Failed to run the bot: {:?}", e),
+		Ok(stuff) => stuff,
+	};
+	println!("{:?}", threads.0.thread.await);
 }
 
-async fn bot_main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let mut players = HashMap::<u16, ak::JoinBroadcast>::new();
+#[apply(callback!)]
+async fn join_callback(join_brc: JoinBroadcast, _bot: Arc<Mutex<Player>>, _world: Arc<Mutex<World>>, _message_sender: MessageSender) -> BotResult {
+	let message = format!("{}[ID:{}] has joined the server.", join_brc.name.to_string_lossy(), join_brc.id);
+	let body = json!({
+		"content": message,
+		"username": "Discord to asciicker bridge",
+		"allowed_mentions": {
+			"parse": []
+		}
+	});
+	REQWEST_CLIENT.post(DISCORD_WEBHOOK.clone()).body(body.to_string()).send().await.unwrap();
+	Ok(())
+}
 
-    let mut ws = connect_async(std::env::var("AK_SERVER")?).await?.0;
+#[apply(callback!)]
+async fn exit_callback(exit_brc: ExitBroadcast, _bot: Arc<Mutex<Player>>, world: Arc<Mutex<World>>, _message_sender: MessageSender) -> BotResult {
+	let world = world.lock().await;
+	let player = world.clients.iter().filter(|p|p.id == exit_brc.id).next().unwrap_or_else(||unreachable!());
+	let message = format!("{}[ID:{}] has left the server.", player.nickname, player.id);
+	let body = json!({
+		"content": message,
+		"username": "Discord to asciicker bridge",
+		"allowed_mentions": {
+			"parse": []
+		}
+	});
+	REQWEST_CLIENT.post(DISCORD_WEBHOOK.clone()).body(body.to_string()).send().await.unwrap();
+	Ok(())
+}
 
-    let mut name = [b'\0'; 31];
-    name[0] = b'B';
-    name[1] = b'o';
-    name[2] = b't';
-
-    let join_req = Binary::new(ak::JoinRequest::new(name));
-
-    ws.send(Message::Binary(join_req.bytes().to_vec())).await?;
-
-    let data = match ws.next().await {
-        Some(message) => {
-            match message? {
-                Message::Binary(d) => d,
-                _ => return Err(Box::new(ak::AsciickerConnectionError::UnknownData))
-            }
-        }
-        _ => return Err(Box::new(ak::AsciickerConnectionError::ConnectionDropped))
-    };
-
-    let join_rsp = ak::JoinResponse::new(data.as_slice());
-
-    println!("Bot has joined the server and received an id of {}", join_rsp.id);
-
-    let (mut ws_s, mut ws_r) = ws.split(); 
-
-    tokio::spawn(async move {
-        loop {
-            Delay::new(std::time::Duration::from_millis(10)).await;
-            let pos_req = Binary::new(ak::PoseRequest::new(0, 0,0, [0.0, 0.0, 0.0], 0.0, 0));
-            let pos_req_bytes = pos_req.bytes();
-            let result = ws_s.send(Message::Binary(pos_req_bytes[..pos_req_bytes.len()-2].to_vec())).await;
-            match result {
-                Err(_) => return Err::<(), Box<ak::AsciickerConnectionError>>(Box::new(ak::AsciickerConnectionError::ConnectionDropped)),
-                _ => {}
-            }
-        }
-    });
-
-    let mut headers = reqwest::header::HeaderMap::default();
-    headers.insert(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_str("application/json").unwrap());                            
-    let client = reqwest::Client::builder().default_headers(headers).build()?;
-
-    loop {
-        while let Some(d) = ws_r.next().await {
-            match d {
-                Ok(tmp_data) => {
-                    match tmp_data {
-                        Message::Binary(more_data) => match more_data[0] {
-                            ak::TalkBroadcast::TOKEN => {
-                                let the_data = ak::TalkBroadcast::new(more_data);
-                                let mut what: String = std::str::from_utf8(the_data.string().as_slice()).unwrap_or("Invalid UTF-8").escape_default().collect();                                
-                                if std::env::var_os("CODEBLOCK").is_some() {
-                                    what = "```".to_owned() + &what + &"```";
-                                }
-                                what = what.replace("\\'", "'");
-                                let mut who: String = players[&the_data.id()].name().to_str().unwrap_or("Invalid UTF-8").to_owned().escape_default().collect();
-                                who = who.replace("\\'", "'");
-                                let body = format!("{{\"content\": \"{}\", \"username\": \"{}[id:{}]\", \"allowed_mentions\": {{\"parse\": []}}}}", what, who, the_data.id());
-                                println!("Sending data to a webhook: {}", body);
-                                client.post(std::env::var("DISCORD_WEBHOOK")?)
-                                .body(body)
-                                .send().await?;
-                            },  
-                            ak::JoinBroadcast::TOKEN => {
-                                let the_data = ak::JoinBroadcast::new(more_data);
-                                let mut who: String = the_data.name().to_str().unwrap_or("Invalid UTF-8").to_owned().escape_default().collect();
-                                who = who.replace("\\'", "'");
-                                let body = format!("{{\"content\": \"New user {}[id:{}]\", \"username\": \"Information\", \"allowed_mentions\": {{\"parse\": []}}}}", who, the_data.id());
-                                println!("Sending data to a webhook: {}", body);
-                                client.post(std::env::var("DISCORD_WEBHOOK").unwrap())
-                                .body(body)
-                                .send().await.unwrap();
-                                players.insert(the_data.id(), the_data);
-                            },
-                            ak::ExitBroadcast::TOKEN => {
-                                let the_data = ak::ExitBroadcast::new(more_data);
-                                let mut who: String = players[&the_data.id()].name().to_str().unwrap_or("Invalid UTF-8").to_owned().escape_default().collect();
-                                who = who.replace("\\'", "'");
-                                let body = format!("{{\"content\": \"{}[id:{}] has left\", \"username\": \"Information\", \"allowed_mentions\": {{\"parse\": []}}}}", who, the_data.id());
-                                println!("Sending data to a webhook: {}", body);
-                                client.post(std::env::var("DISCORD_WEBHOOK").unwrap())
-                                .body(body)
-                                .send().await.unwrap();
-                                players.remove(&the_data.id());
-                            },
-                            _ => continue
-                        },
-                        _ => continue
-                    }
-                },
-                Err(_) => return Err(Box::new(ak::AsciickerConnectionError::ConnectionDropped))
-            }
-        }
-    }
-
-    #[allow(unreachable_code)]
-    Ok(())
+#[apply(callback!)]
+async fn talk_callback(talk_brc: TalkBroadcast, _bot: Arc<Mutex<Player>>, world: Arc<Mutex<World>>, _message_sender: MessageSender) -> BotResult {
+	let world = world.lock().await;
+	let player = world.clients.iter().filter(|p|p.id == talk_brc.id).next().unwrap_or_else(||unreachable!());
+	let message = talk_brc.str.to_string_lossy();
+	let name = format!("{}[ID:{}]", player.nickname, player.id);
+	let body = json!({
+		"content": message,
+		"username": name,
+		"allowed_mentions": {
+			"parse": []
+		}
+	});
+	REQWEST_CLIENT.post(DISCORD_WEBHOOK.clone()).body(body.to_string()).send().await.unwrap();
+	Ok(())
 }
