@@ -38,10 +38,11 @@ async fn main() {
 	bot.on_join(join_callback);
 	bot.on_exit(exit_callback);
 	bot.on_talk(talk_callback);
-	let (threads, _data) = match bot.run().await {
+	let (threads, data) = match bot.run().await {
 		Err(e) => panic!("Failed to run the bot: {:?}", e),
 		Ok(stuff) => stuff,
 	};
+	data.0.lock().await.pose.position[2] = -300f32; // Bury the bot so real players don't see it.
 	println!("{:?}", threads.0.thread.await);
 }
 
